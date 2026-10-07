@@ -40,7 +40,7 @@ Define your quarterly objectives. Every triage decision, scheduling recommendati
 
 ```bash
 # 1. Clone
-git clone https://github.com/mimurchison/claude-chief-of-staff.git
+git clone https://github.com/dipeshnx/claude-chief-of-staff.git
 cd claude-chief-of-staff
 
 # 2. Install
