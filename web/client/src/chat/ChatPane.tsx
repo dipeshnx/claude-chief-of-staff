@@ -3,9 +3,11 @@ import { SafeMarkdown } from '../markdown';
 import { ApprovalCard, prettyTool } from './ApprovalCard';
 import { useChat } from './ChatContext';
 import type { ChatItem } from './chatReducer';
+import { chatLabel, dropdownChats, groupChats } from './chatLabels';
 import { useResizableWidth } from './useResizableWidth';
 
 const COMMANDS = ['/gm', '/triage', '/my-tasks overdue', '/enrich stale'];
+const ALL_CHATS = '__all_chats__';
 
 function ItemView({ item, onResume }: { item: ChatItem; onResume(): void }) {
   switch (item.kind) {
@@ -59,15 +61,29 @@ export function ChatPane() {
     chat.send(draft);
     setDraft('');
   };
-  const titleOf = (chatId: string) => chat.chats.find((c) => c.id === chatId)?.title ?? `chat ${chatId.slice(0, 8)}`;
+  const titleOf = (chatId: string) => {
+    const c = chat.chats.find((x) => x.id === chatId);
+    return c ? chatLabel(c) : `chat ${chatId.slice(0, 8)}`;
+  };
+  const shown = dropdownChats(chat.chats, chat.activeId);
+  const onPick = (value: string) => {
+    if (value === ALL_CHATS) window.location.hash = '#/chats';
+    else if (value) chat.open(value);
+    else chat.newChat();
+  };
 
   return (
     <aside className="chat" style={{ width }}>
       <div className="chat-resize" {...handleProps} />
       <header className="chat-head">
-        <select aria-label="Conversation" value={chat.activeId ?? ''} onChange={(e) => (e.target.value ? chat.open(e.target.value) : chat.newChat())}>
+        <select aria-label="Conversation" value={chat.activeId ?? ''} onChange={(e) => onPick(e.target.value)}>
           <option value="">New chat</option>
-          {chat.chats.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+          {groupChats(shown).map(({ group, chats }) => (
+            <optgroup key={group} label={group}>
+              {chats.map((c) => <option key={c.id} value={c.id}>{chatLabel(c)}</option>)}
+            </optgroup>
+          ))}
+          {chat.chats.length > shown.length && <option value={ALL_CHATS}>All chats ({chat.chats.length})…</option>}
         </select>
         <button onClick={chat.newChat}>New</button>
         <button aria-label="Collapse chat" onClick={() => chat.setPaneOpen(false)}>⟩</button>
