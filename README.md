@@ -50,9 +50,12 @@ chmod +x install.sh
 # 3. Try it
 claude
 # Then type: /gm
+
+# Or use the browser dashboard instead (Node.js 20.19+)
+cd web && npm install && npm start
 ```
 
-First morning briefing in under 15 minutes from clone.
+First morning briefing in under 15 minutes from clone. Prefer a browser? See [Web UI](#web-ui-optional).
 
 ## Web UI (optional)
 
@@ -125,6 +128,9 @@ Auto-scans email, Slack, WhatsApp, calendar, and meeting notes to build rich rel
 ### Goal-Aligned Everything
 Your `goals.yaml` is the source of truth. Claude references it constantly — triaging email, proposing meetings, scoring tasks. It pushes back when your time allocation drifts from your stated priorities.
 
+### Web Dashboard (`web/`)
+Everything above, in a browser. A Today view shows what's overdue, at risk, or going quiet. Tasks, goals, contacts, and schedules are editable in place. A docked chat runs `/gm` and `/triage` in one click. Any tool your settings don't already allow, like sending an email, waits for you on an Approve / Deny card. It runs your own `claude` CLI, so there's no API key. See [Web UI](#web-ui-optional).
+
 ---
 
 ## What's Included
@@ -143,10 +149,15 @@ claude-chief-of-staff/
 │   ├── triage.md                # Inbox triage
 │   ├── my-tasks.md              # Task management
 │   └── enrich.md                # Contact enrichment
+├── web/                         # Optional browser dashboard + chat (npm start)
+│   ├── server/                  # Local server that drives your claude CLI
+│   ├── client/                  # React UI
+│   └── test/                    # Automated tests (npm test)
 └── docs/
     ├── setup-guide.md           # Detailed setup walkthrough
     ├── mcp-servers.md           # MCP server installation
-    └── customization.md         # Make it yours
+    ├── customization.md         # Make it yours
+    └── superpowers/             # Web UI design spec, build plan, CLI findings
 ```
 
 ---
