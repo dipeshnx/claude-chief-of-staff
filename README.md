@@ -89,7 +89,7 @@ Settings (environment variables):
 Notes:
 - The server only listens on 127.0.0.1. It needs the token in the printed link and rejects requests from other websites.
 - Schedules aren't run automatically by the web UI yet. Use **Run now**.
-- After a server restart, reopening an old chat resumes Claude's context, but earlier messages aren't redrawn.
+- Reloading the page reopens the chat you were in. Chats are saved to `~/.claude/cos-web/transcripts/` (readable only by you), so they're still there after restarting the server.
 - Contact files must have simple names (`jane-smith.md`; letters, digits, `-`, `_`, starting with a letter or digit) to appear in the UI.
 - Turn costs are the API-equivalent figure the CLI reports. On a Claude subscription you aren't billed per turn.
 

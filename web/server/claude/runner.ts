@@ -10,6 +10,7 @@ import type { ApprovalBroker } from '../mcp/approvals';
 import { buildArgs, childEnv, describeExit } from './env';
 import { normalize, type StreamState } from './events';
 import { titleFrom, type SessionIndex } from './sessions';
+import type { TranscriptStore } from './transcripts';
 
 export interface RunnerOptions {
   claudeBin: string;
@@ -41,8 +42,14 @@ export class ClaudeRunner extends EventEmitter {
   private readonly queues = new Map<string, Promise<unknown>>();
   private readonly transcripts = new Map<string, ChatEvent[]>();
   private readonly sessionIds = new Map<string, string>();
+  private readonly pendingSaves = new Set<Promise<void>>();
 
-  constructor(private readonly opts: RunnerOptions, private readonly sessions: SessionIndex, private readonly broker: ApprovalBroker) {
+  constructor(
+    private readonly opts: RunnerOptions,
+    private readonly sessions: SessionIndex,
+    private readonly broker: ApprovalBroker,
+    private readonly store?: TranscriptStore,
+  ) {
     super();
   }
 
@@ -65,6 +72,16 @@ export class ClaudeRunner extends EventEmitter {
     return this.transcripts.get(chatId) ?? [];
   }
 
+  /** In-memory transcript, or the saved one after a server restart. */
+  async loadHistory(chatId: string): Promise<ChatEvent[]> {
+    if (!this.transcripts.has(chatId) && this.store) {
+      const saved = await this.store.load(chatId);
+      // Re-check: a send may have started recording while the file was being read.
+      if (saved && !this.transcripts.has(chatId)) this.transcripts.set(chatId, saved.slice(-MAX_TRANSCRIPT));
+    }
+    return this.history(chatId);
+  }
+
   isRunning(chatId: string): boolean {
     return (this.live.get(chatId)?.pendingTurns ?? 0) > 0;
   }
@@ -73,9 +90,12 @@ export class ClaudeRunner extends EventEmitter {
     const chats = [...this.live.entries()];
     for (const [id] of chats) this.stop(id);
     await Promise.all(chats.map(([, c]) => c.exitPromise));
+    await Promise.all([...this.pendingSaves]);
   }
 
   private async doSend(chatId: string, text: string): Promise<void> {
+    // Continuing a chat after a restart must append to its saved transcript, not replace it.
+    await this.loadHistory(chatId);
     const now = new Date().toISOString();
     const existing = await this.sessions.get(chatId);
     await this.sessions.upsert({
@@ -146,16 +166,28 @@ export class ClaudeRunner extends EventEmitter {
     } catch {
       return;
     }
+    let turnEnded = false;
     for (const ev of normalize(msg, chat.state)) {
       if (ev.type === 'error' && chat.stopping) continue; // a user Stop must not show an error bubble
       if (ev.type === 'session') this.rememberSession(chatId, ev.sessionId);
       this.record(chatId, ev);
       if (ev.type === 'turn_result') {
+        turnEnded = true;
         if (ev.sessionId) this.rememberSession(chatId, ev.sessionId);
         chat.pendingTurns = Math.max(0, chat.pendingTurns - 1);
         if (chat.pendingTurns === 0) this.record(chatId, { type: 'status', state: 'idle' });
       }
     }
+    if (turnEnded) this.persist(chatId);
+  }
+
+  private persist(chatId: string): void {
+    const events = this.transcripts.get(chatId);
+    if (!this.store || !events) return;
+    const save = this.store.save(chatId, events)
+      .catch((err) => console.error(`[cos-web] could not save transcript ${chatId}:`, err))
+      .finally(() => this.pendingSaves.delete(save));
+    this.pendingSaves.add(save);
   }
 
   private rememberSession(chatId: string, sessionId: string): void {
@@ -176,6 +208,7 @@ export class ClaudeRunner extends EventEmitter {
       this.record(chatId, { type: 'error', message: describeExit(code, signal, chat.stderr), stderr: [...chat.stderr] });
     }
     this.record(chatId, { type: 'status', state: 'idle' });
+    this.persist(chatId);
   }
 
   private record(chatId: string, ev: ChatEvent): void {

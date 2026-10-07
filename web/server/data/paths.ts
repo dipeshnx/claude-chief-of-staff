@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 
-export interface CosPaths { home: string; goals: string; tasks: string; schedules: string; contactsDir: string; sessions: string }
+export interface CosPaths { home: string; goals: string; tasks: string; schedules: string; contactsDir: string; sessions: string; transcriptsDir: string }
 
 export class InvalidSlugError extends Error {
   constructor(slug: string) {
@@ -19,6 +19,7 @@ export function cosPaths(home: string): CosPaths {
     schedules: join(home, 'schedules.yaml'),
     contactsDir: join(home, 'contacts'),
     sessions: join(home, 'cos-web', 'sessions.json'),
+    transcriptsDir: join(home, 'cos-web', 'transcripts'),
   };
 }
 

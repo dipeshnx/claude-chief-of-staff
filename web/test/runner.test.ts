@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ClaudeRunner, newChatId } from '../server/claude/runner';
 import { SessionIndex } from '../server/claude/sessions';
+import { TranscriptStore } from '../server/claude/transcripts';
 import { ApprovalBroker } from '../server/mcp/approvals';
 import type { ChatEvent } from '../shared/types';
 import { FAKE_CLAUDE, waitFor } from './helpers';
@@ -111,5 +112,51 @@ describe('ClaudeRunner', () => {
     await runner.send(id, 'hi');
     const err = await waitFor(() => of(id).find((e) => e.type === 'error') as { message: string } | undefined);
     expect(err.message).toMatch(/not found/);
+  });
+});
+
+describe('ClaudeRunner transcript persistence', () => {
+  async function makeRunner(dir: string) {
+    const runner = new ClaudeRunner(
+      { claudeBin: FAKE_CLAUDE, cwd: dir, approvalTimeoutMs: 60_000, mcpUrl: (id) => `http://127.0.0.1:1/mcp?chat=${id}` },
+      new SessionIndex(join(dir, 'sessions.json')),
+      new ApprovalBroker(60_000),
+      new TranscriptStore(join(dir, 'transcripts')),
+    );
+    runners.push(runner);
+    let results = 0;
+    runner.on('event', (_id: string, ev: ChatEvent) => { if (ev.type === 'turn_result') results += 1; });
+    return { runner, results: () => results };
+  }
+  const userTexts = (evs: ChatEvent[]) => evs.filter((e) => e.type === 'user').map((e) => (e as { text: string }).text);
+  const replyText = (evs: ChatEvent[]) => evs.filter((e) => e.type === 'text_delta').map((e) => (e as { text: string }).text).join('');
+
+  it('redraws a chat after a restart, and keeps earlier messages when it continues', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'cos-persist-'));
+    const id = newChatId();
+
+    const first = await makeRunner(dir);
+    await first.runner.send(id, 'hello');
+    await waitFor(() => first.results() === 1);
+    await first.runner.shutdown();
+    await waitFor(async () => (await readFile(join(dir, 'transcripts', `${id}.json`), 'utf8').catch(() => '')).includes('echo: hello') || undefined);
+
+    // "Restart": a fresh runner with empty memory, same store.
+    const second = await makeRunner(dir);
+    const restored = await second.runner.loadHistory(id);
+    expect(userTexts(restored)).toEqual(['hello']);
+    expect(replyText(restored)).toBe('echo: hello');
+
+    await second.runner.send(id, 'again');
+    await waitFor(() => second.results() === 1);
+    await waitFor(async () => (await readFile(join(dir, 'transcripts', `${id}.json`), 'utf8').catch(() => '')).includes('echo: again') || undefined);
+    const saved = JSON.parse(await readFile(join(dir, 'transcripts', `${id}.json`), 'utf8')) as ChatEvent[];
+    expect(userTexts(saved)).toEqual(['hello', 'again']);
+  });
+
+  it('loadHistory returns [] for an unknown chat', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'cos-persist-'));
+    const { runner } = await makeRunner(dir);
+    expect(await runner.loadHistory('never-seen')).toEqual([]);
   });
 });

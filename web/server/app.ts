@@ -14,6 +14,7 @@ import { ApprovalBroker } from './mcp/approvals';
 import { registerMcpRoute } from './mcp/server';
 import { ClaudeRunner } from './claude/runner';
 import { SessionIndex } from './claude/sessions';
+import { TranscriptStore } from './claude/transcripts';
 import { checkHealth } from './claude/health';
 
 export interface AppContext {
@@ -47,6 +48,7 @@ export async function buildApp(config: Config): Promise<AppContext> {
     },
     sessions,
     broker,
+    new TranscriptStore(paths.transcriptsDir),
   );
 
   app.setErrorHandler((err, _req, reply) => sendError(reply, err));

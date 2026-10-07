@@ -51,7 +51,7 @@ describe('readText / removeChecked', () => {
 describe('paths', () => {
   const paths = cosPaths('/h');
   it('lays out the known files', () => {
-    expect(paths).toEqual({ home: '/h', goals: '/h/goals.yaml', tasks: '/h/my-tasks.yaml', schedules: '/h/schedules.yaml', contactsDir: '/h/contacts', sessions: '/h/cos-web/sessions.json' });
+    expect(paths).toEqual({ home: '/h', goals: '/h/goals.yaml', tasks: '/h/my-tasks.yaml', schedules: '/h/schedules.yaml', contactsDir: '/h/contacts', sessions: '/h/cos-web/sessions.json', transcriptsDir: '/h/cos-web/transcripts' });
   });
   it('accepts safe slugs and rejects traversal', () => {
     expect(contactPath(paths, 'jane-smith')).toBe('/h/contacts/jane-smith.md');

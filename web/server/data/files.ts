@@ -43,13 +43,16 @@ async function currentHash(path: string): Promise<string | null> {
   }
 }
 
-/** expectedHash: undefined = no check, null = file must not exist, string = must match current contents. */
-export async function writeAtomic(path: string, text: string, expectedHash?: string | null): Promise<string> {
+/**
+ * expectedHash: undefined = no check, null = file must not exist, string = must match current contents.
+ * mode: permissions for the new file (default 0o666 minus umask).
+ */
+export async function writeAtomic(path: string, text: string, expectedHash?: string | null, mode?: number): Promise<string> {
   if (expectedHash !== undefined && (await currentHash(path)) !== expectedHash) throw new ConflictError(path);
   await mkdir(dirname(path), { recursive: true });
   const tmp = join(dirname(path), `${TMP_PREFIX}${basename(path)}-${randomBytes(6).toString('hex')}`);
   try {
-    await writeFile(tmp, text, 'utf8');
+    await writeFile(tmp, text, { encoding: 'utf8', mode });
     await rename(tmp, path);
   } catch (err) {
     await rm(tmp, { force: true });

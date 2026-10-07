@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import type { ApprovalRequest, ChatRecord } from '../../../shared/types';
 import { api } from '../api';
 import { useServerMessage, useSocket } from '../socket';
+import { loadActiveChat, reconcileActiveChat, saveActiveChat } from './activeChat';
 import { applyEvent, emptyChat, fromHistory, type ChatView } from './chatReducer';
 
 export interface ChatApi {
@@ -26,9 +27,13 @@ const LOST_BEFORE_START = 'Connection lost before the chat started — please re
 
 export function ChatProvider({ children }: { children: ReactNode }) {
   const socket = useSocket();
-  const [activeId, setActiveIdState] = useState<string | null>(null);
-  const activeRef = useRef<string | null>(null);
-  const setActiveId = (id: string | null) => { activeRef.current = id; setActiveIdState(id); };
+  // The open chat survives a page reload; the connect effect below reopens it.
+  const [activeId, setActiveIdState] = useState<string | null>(loadActiveChat);
+  const activeRef = useRef<string | null>(activeId);
+  const setActiveId = (id: string | null) => { activeRef.current = id; setActiveIdState(id); saveActiveChat(id); };
+  // Checked once against the first chat list: a brand-new chat may not be listed yet on later refreshes.
+  const restoreChecked = useRef(false);
+  const restoredId = useRef(activeId);
   const [views, setViews] = useState<Record<string, ChatView>>({});
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
   const [chats, setChats] = useState<ChatRecord[]>([]);
@@ -37,7 +42,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // A new chat's id comes back in chat.created; messages typed before then wait here.
   const pendingNew = useRef<{ ref: string; queued: string[] } | null>(null);
 
-  const refreshChats = useCallback(() => { api<ChatRecord[]>('GET', '/api/chats').then(setChats, () => {}); }, []);
+  const refreshChats = useCallback(() => {
+    api<ChatRecord[]>('GET', '/api/chats').then((list) => {
+      setChats(list);
+      if (!restoreChecked.current) {
+        restoreChecked.current = true;
+        const stillRestored = activeRef.current !== null && activeRef.current === restoredId.current;
+        if (stillRestored && !reconcileActiveChat(activeRef.current, list)) setActiveId(null);
+      }
+    }, () => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(refreshChats, [refreshChats]);
 
   // After a reconnect, resync the visible chat (events may have been missed while offline).

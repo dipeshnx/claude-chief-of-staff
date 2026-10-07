@@ -135,3 +135,28 @@ describe('GET /api/health', () => {
     });
   });
 });
+
+describe('chat history across a server restart', () => {
+  it('reopening a chat after a restart redraws its messages', async () => {
+    const home = await makeHome();
+    const first = await buildApp(testConfig(home, { port: 0 }));
+    await first.app.listen({ host: '127.0.0.1', port: 0 });
+    const a = connect(first.port());
+    await a.opened;
+    a.send({ type: 'chat.send', text: 'hello', clientRef: 'r1' });
+    const { chatId } = await a.next('chat.created');
+    await a.next('chat.event', (m) => m.chatId === chatId && m.event.type === 'turn_result');
+    a.ws.close();
+    await first.close();
+
+    ctx = await buildApp(testConfig(home, { port: 0 }));
+    await ctx.app.listen({ host: '127.0.0.1', port: 0 });
+    const b = connect(ctx.port());
+    await b.opened;
+    b.send({ type: 'chat.open', chatId });
+    const hist = await b.next('chat.history', (m) => m.chatId === chatId);
+    expect(hist.resumed).toBe(false);
+    expect(hist.events.filter((e) => e.type === 'user').map((e) => (e as { text: string }).text)).toEqual(['hello']);
+    expect(hist.events.filter((e) => e.type === 'text_delta').map((e) => (e as { text: string }).text).join('')).toBe('echo: hello');
+  });
+});

@@ -47,7 +47,7 @@ export function registerWs(app: FastifyInstance, { runner, broker, sessions }: D
       case 'chat.stop':
         return runner.stop(msg.chatId);
       case 'chat.open': {
-        const events = runner.history(msg.chatId);
+        const events = await runner.loadHistory(msg.chatId);
         const rec = await sessions.get(msg.chatId);
         return sendTo(socket, { type: 'chat.history', chatId: msg.chatId, events, running: runner.isRunning(msg.chatId), resumed: events.length === 0 && !!rec?.sessionId });
       }
