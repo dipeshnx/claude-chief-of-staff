@@ -54,6 +54,52 @@ claude
 
 First morning briefing in under 15 minutes from clone.
 
+## Web UI (optional)
+
+Prefer a browser to the terminal? `web/` is a local dashboard and chat for the same setup. It doesn't use an API key. It runs your installed `claude` CLI, with your login, settings, MCP servers, CLAUDE.md, and slash commands.
+
+Requires Node.js 20.19 or newer.
+
+```bash
+cd web
+npm install
+npm start
+# Open the link it prints: http://127.0.0.1:4317/?t=<token>
+```
+
+What you get:
+- **Today:** overdue and due-today tasks, goals at risk, relationships going quiet, and a one-click `/gm`.
+- **Tasks / Goals / Contacts / Schedules:** view and edit `~/.claude/my-tasks.yaml`, `goals.yaml`, `contacts/*.md`, and `schedules.yaml`. Comments in your YAML are kept. If Claude changes a file while you're editing it, the UI asks you to reload instead of overwriting.
+- **Chat:** a docked chat with Claude, plus `/gm`, `/triage`, `/my-tasks overdue`, and `/enrich stale` buttons. Any tool your settings don't already allow (sending an email, writing a file) pauses for an **Approve / Deny** card that shows the tool and every field it will be called with. By default, unanswered requests are denied after 30 minutes.
+
+Settings (environment variables):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `COS_PORT` | `4317` | Port (always bound to 127.0.0.1) |
+| `COS_HOME` | `~/.claude` | Where goals/tasks/contacts live |
+| `COS_CWD` | `~` | Working directory for `claude` |
+| `CLAUDE_BIN` | `claude` | Path to the Claude Code CLI |
+| `COS_TOKEN` | random | Fixed access token, e.g. for a bookmark |
+| `COS_APPROVAL_TIMEOUT_MS` | `1800000` (30 min) | How long an approval card waits before it's denied |
+
+Notes:
+- The server only listens on 127.0.0.1. It needs the token in the printed link and rejects requests from other websites.
+- Schedules aren't run automatically by the web UI yet. Use **Run now**.
+- After a server restart, reopening an old chat resumes Claude's context, but earlier messages aren't redrawn.
+- Contact files must have simple names (`jane-smith.md`; letters, digits, `-`, `_`, starting with a letter or digit) to appear in the UI.
+- Turn costs are the API-equivalent figure the CLI reports. On a Claude subscription you aren't billed per turn.
+
+### Check it works
+
+After `npm start`, open the printed link and run through this once:
+
+1. Click `/gm`. A briefing streams into the chat.
+2. Send `/my-tasks add "web UI test" --due <today's date>`. An approval card appears for the file write. Approve it, and the task shows up in **Tasks** without a reload.
+3. Ask Claude to write a file, then **Deny** the card. The file isn't created.
+4. Stop a reply while it's running, then ask "what were you doing?". Claude answers from the conversation so far.
+5. Edit a goal in **Goals** and save. The comments in `goals.yaml` are still there.
+
 ---
 
 ## Features
