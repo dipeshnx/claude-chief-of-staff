@@ -3,6 +3,7 @@ import { SafeMarkdown } from '../markdown';
 import { ApprovalCard, prettyTool } from './ApprovalCard';
 import { useChat } from './ChatContext';
 import type { ChatItem } from './chatReducer';
+import { useResizableWidth } from './useResizableWidth';
 
 const COMMANDS = ['/gm', '/triage', '/my-tasks overdue', '/enrich stale'];
 
@@ -42,6 +43,7 @@ export function ChatPane() {
   const chat = useChat();
   const [draft, setDraft] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
+  const { width, handleProps } = useResizableWidth();
   const last = chat.view.items.at(-1);
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }); }, [chat.view.items.length, last]);
 
@@ -60,7 +62,8 @@ export function ChatPane() {
   const titleOf = (chatId: string) => chat.chats.find((c) => c.id === chatId)?.title ?? `chat ${chatId.slice(0, 8)}`;
 
   return (
-    <aside className="chat">
+    <aside className="chat" style={{ width }}>
+      <div className="chat-resize" {...handleProps} />
       <header className="chat-head">
         <select aria-label="Conversation" value={chat.activeId ?? ''} onChange={(e) => (e.target.value ? chat.open(e.target.value) : chat.newChat())}>
           <option value="">New chat</option>
